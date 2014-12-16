@@ -607,3 +607,56 @@ Install the network Service (Neutron)
 
     service neutron-server start
     chkconfig neutron-server on
+
+
+Install the dashboard Service (Horizon)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* Install the required packages::
+
+    yum install httpd memcached python-memcached mod_wsgi openstack-dashboard -y
+
+
+* Edit /etc/openstack-dashboard/local_settings::
+
+    vim /etc/openstack-dashboard/local_settings
+    ALLOWED_HOSTS = ['*']
+    OPENSTACK_HOST = "controller"
+    CACHES = {
+        'default': {
+        'BACKEND' : 'django.core.cache.backends.memcached.MemcachedCache',
+        'LOCATION' : '127.0.0.1:11211'
+        }
+    }
+
+* Ensure that the SELinux policy of the system is configured to allow network connections to the HTTP server::
+
+    setsebool -P httpd_can_network_connect on
+
+* Flush IPTables
+
+    iptables -F
+
+* Reload HTTP and memcached::
+
+    service httpd start; service memcached start
+    chkconfig httpd on
+    chkconfig memcached on
+
+* Note::
+
+    If you have this error: apache2: Could not reliably determine the server's fully qualified domain name, using 127.0.1.1.
+    Set the 'ServerName' directive  globally to suppress this message”
+
+    Solution: Edit /etc/httpd/conf/httpd.conf
+
+    vim /etc/httpd/conf/httpd.conf
+    Add the following new line end of file:
+    ServerName localhost
+
+* Reload Apache and memcached::
+
+    service httpd start; service memcached start
+
+
+* Check OpenStack Dashboard at http://controller/horizon. login admin/admin_pass
