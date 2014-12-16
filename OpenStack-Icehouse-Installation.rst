@@ -666,9 +666,10 @@ Install the network Service (Neutron)
     service openvswitch start
     chkconfig openvswitch on
 
-* Add the integration bridge::
+* Add the integration and external bridges::
 
     ovs-vsctl add-br br-int
+    ovs-vsctl add-br br-ex
 
 * Assign the right config file for OVS::
 
