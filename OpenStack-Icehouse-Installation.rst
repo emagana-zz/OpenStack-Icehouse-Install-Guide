@@ -288,11 +288,11 @@ Install the Identity Service (Keystone)
     export OS_TENANT_NAME=admin
     export OS_AUTH_URL=http://controller:35357/v2.0
 
-* Create the signing keys and certificates and restrict access to the generated data: :
+* Create the signing keys and certificates and restrict access to the generated data::
 
     keystone-manage pki_setup --keystone-user keystone --keystone-group keystone
     chown -R keystone:keystone /etc/keystone/ssl
-	chmod -R o-rwx /etc/keystone/ssl
+    chmod -R o-rwx /etc/keystone/ssl
         
 * Test Keystone::
     
