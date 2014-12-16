@@ -600,6 +600,14 @@ Install the network Service (Neutron)
 
     pkill dnsmasq
 
+* Edit the /etc/neutron/l3_agent.ini::
+
+    vim /etc/neutron/l3_agent.ini
+
+    [DEFAULT]
+    interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
+    use_namespaces = True
+
 * Edit the /etc/neutron/metadata_agent.ini::
 
     vim /etc/neutron/metadata_agent.ini
@@ -671,10 +679,12 @@ Install the network Service (Neutron)
 
     service neutron-openvswitch-agent start
     service neutron-dhcp-agent start
+    service neutron-l3-agent start
     service neutron-metadata-agent start
     chkconfig neutron-openvswitch-agent on
     chkconfig neutron-dhcp-agent on
     chkconfig neutron-metadata-agent on
+    chkconfig neutron-l3-agent on
 
 
 Install the dashboard Service (Horizon)
