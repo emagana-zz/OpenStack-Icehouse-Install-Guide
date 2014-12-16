@@ -4,7 +4,6 @@ OpenStack Icehouse Installation - Multi Node
 
 Welcome to OpenStack Icehouse installation manual !
 
-This document is based on `the OpenStack Official Documentation <http://docs.openstack.org/icehouse/install-guide/install/apt/content/index.html>`_ for Icehouse. 
 
 :Version: 1.0
 :Authors: Edgar Magana
@@ -20,7 +19,8 @@ Copyright (C) `Edgar Magana <https://www.linkedin.com/profile/view?id=21754469&t
 
 Based on the work done by:
 
-+ **Chaima Ghribi & Marouen Mechtri [OpenStack-Icehouse-Installation](https://github.com/ChaimaGhribi/OpenStack-Icehouse-Installation).
++ This document is based on the `OpenStack Official Documentation <http://docs.openstack.org/icehouse/install-guide/install/apt/content/index.html>`_ for Icehouse.
++ Chaima Ghribi & Marouen Mechtri `OpenStack-Icehouse-Installation <https://github.com/ChaimaGhribi/OpenStack-Icehouse-Installation>`_
 
 
 ================================
@@ -29,16 +29,17 @@ Based on the work done by:
    
 
 Basic Architecture and Network Configuration
-==========================================
+============================================
 
-In this installation guide, we cover the step-by-step process of installing Openstack Icehouse on Ubuntu 14.04.  We consider a multi-node architecture with Openstack Networking (Neutron) that requires three node types: 
+In this installation guide, we cover the step-by-step process of installing Openstack Icehouse on CentOS 6.5.  We consider a multi-node architecture with Openstack Networking (Neutron) that requires two node types:
 
 + **Controller/Networking Node** that runs Keystone, Glance, Nova, Horizon and Neutron management services as well as OpenvSwitch and DHCP agents for connecting virtual machines to external networks.
 
 + **Compute Node** that runs the virtual machine instances in OpenStack. 
 
-We have deployed a single compute node (see the Figure below) but you can simply add more compute nodes to our multi-node installation, if needed.  
+We have deployed a couple of compute nodes (see the Figure below) but you can simply add more compute nodes to our multi-node installation, if needed.
 
+.. image:: https://raw.githubusercontent.com/emagana/OpenStack-Icehouse-Install-Guide/blob/master/images/openstack-icehouse-ref-architecture.png
 
 So, let’s prepare the nodes for OpenStack installation!
 
