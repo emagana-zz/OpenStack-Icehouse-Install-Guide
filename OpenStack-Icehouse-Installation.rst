@@ -485,3 +485,125 @@ Install the compute Service (Nova)
 
     nova image-list
 
+
+Install the network Service (Neutron)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* Install the Neutron server and the OpenVSwitch packages::
+
+    yum install openstack-neutron openstack-neutron-ml2 python-neutronclient -y
+
+* Create a MySql database for Neutron::
+
+    mysql -u root -p
+
+    CREATE DATABASE neutron;
+    GRANT ALL PRIVILEGES ON neutron.* TO neutron@'localhost' IDENTIFIED BY 'password';
+    GRANT ALL PRIVILEGES ON neutron.* TO neutron@'%' IDENTIFIED BY 'password';
+
+    exit;
+
+* Configure service user and role::
+
+    keystone user-create --name=neutron --pass=service_pass --email=neutron@domain.com
+    keystone user-role-add --user=neutron --tenant=service --role=admin
+
+* Register the service and create the endpoint::
+
+    keystone service-create --name=neutron --type=network --description="OpenStack Networking"
+
+    keystone endpoint-create \
+    --service-id=$(keystone service-list | awk '/ network / {print $2}') \
+    --publicurl=http://controller:9696 \
+    --internalurl=http://controller:9696 \
+    --adminurl=http://controller:9696
+
+
+* Update /etc/neutron/neutron.conf::
+
+    vim /etc/neutron/neutron.conf
+
+    [database]
+    connection = mysql://neutron:password@controller/neutron
+
+    [DEFAULT]
+    core_plugin = neutron.plugins.ml2.plugin.Ml2Plugin
+    service_plugins = neutron.services.l3_router.l3_router_plugin.L3RouterPlugin
+    allow_overlapping_ips = True
+
+    auth_strategy = keystone
+    rpc_backend = neutron.openstack.common.rpc.impl_kombu
+    rabbit_host = controller
+
+    notify_nova_on_port_status_changes = True
+    notify_nova_on_port_data_changes = True
+    nova_url = http://controller:8774/v2
+    nova_admin_username = nova
+    # Replace the SERVICE_TENANT_ID with the output of this command (keystone tenant-list | awk '/ service / { print $2 }')
+    nova_admin_tenant_id = SERVICE_TENANT_ID
+    nova_admin_password = service_pass
+    nova_admin_auth_url = http://controller:35357/v2.0
+
+    [keystone_authtoken]
+    auth_uri = http://controller:5000
+    auth_host = controller
+    auth_port = 35357
+    auth_protocol = http
+    admin_tenant_name = service
+    admin_user = neutron
+    admin_password = service_pass
+
+
+* Configure the Modular Layer 2 (ML2) plug-in::
+
+    vim /etc/neutron/plugins/ml2/ml2_conf.ini
+
+    [ml2]
+    type_drivers = gre
+    tenant_network_types = gre
+    mechanism_drivers = openvswitch
+
+    [ml2_type_gre]
+    tunnel_id_ranges = 1:1000
+
+    [securitygroup]
+    firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
+    enable_security_group = True
+
+
+* Configure Compute to use Networking::
+
+    vim /etc/nova/nova.conf
+
+    [DEFAULT]
+    network_api_class=nova.network.neutronv2.api.API
+    neutron_url=http://controller:9696
+    neutron_auth_strategy=keystone
+    neutron_admin_tenant_name=service
+    neutron_admin_username=neutron
+    neutron_admin_password=service_pass
+    neutron_admin_auth_url=http://controller:35357/v2.0
+    libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
+    linuxnet_interface_driver=nova.network.linux_net.LinuxOVSInterfaceDriver
+    firewall_driver=nova.virt.firewall.NoopFirewallDriver
+    security_group_api=neutron
+
+* Create a symbolic link needed by the networking service initialization::
+
+    ln -s /etc/neutron/plugins/ml2/ml2_conf.ini /etc/neutron/plugin.ini
+
+* Populate the database::
+
+    neutron-db-manage --config-file /etc/neutron/neutron.conf \
+    --config-file /etc/neutron/plugins/ml2/ml2_conf.ini upgrade icehouse neutron
+
+* Restart the Compute services::
+
+    service openstack-nova-api restart
+    service openstack-nova-scheduler restart
+    service openstack-nova-conductor restart
+
+* Restart the Networking service::
+
+    service neutron-server start
+    chkconfig neutron-server on
