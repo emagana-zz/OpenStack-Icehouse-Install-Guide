@@ -491,7 +491,18 @@ Install the network Service (Neutron)
 
 * Install the Neutron server and the OpenVSwitch packages::
 
-    yum install openstack-neutron openstack-neutron-ml2 python-neutronclient -y
+    yum install openstack-neutron openstack-neutron-ml2 python-neutronclient openstack-neutron-openvswitch -y
+
+* Edit /etc/sysctl.conf to contain the following::
+
+    vi /etc/sysctl.conf
+    net.ipv4.ip_forward=1
+    net.ipv4.conf.all.rp_filter=0
+    net.ipv4.conf.default.rp_filter=0
+
+* Implement the changes::
+
+    sysctl -p
 
 * Create a MySql database for Neutron::
 
@@ -567,9 +578,41 @@ Install the network Service (Neutron)
     tunnel_id_ranges = 1:1000
 
     [securitygroup]
-    firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
-    enable_security_group = True
+    enable_security_group = False
 
+* Edit the /etc/neutron/dhcp_agent.ini::
+
+    vim /etc/neutron/dhcp_agent.ini
+
+    [DEFAULT]
+    interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
+    dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
+    use_namespaces = True
+    dnsmasq_config_file = /etc/neutron/dnsmasq-neutron.conf
+
+* Create the /etc/neutron/dnsmasq-neutron.conf file::
+
+    vim /etc/neutron/dnsmasq-neutron.conf
+
+    dhcp-option-force=26,1454
+
+* Kill any existing dnsmasq processes::
+
+    pkill dnsmasq
+
+* Edit the /etc/neutron/metadata_agent.ini::
+
+    vim /etc/neutron/metadata_agent.ini
+
+    [DEFAULT]
+    auth_url = http://controller:5000/v2.0
+    auth_region = regionOne
+
+    admin_tenant_name = service
+    admin_user = neutron
+    admin_password = service_pass
+    nova_metadata_ip = controller
+    metadata_proxy_shared_secret = helloOpenStack
 
 * Configure Compute to use Networking::
 
@@ -587,6 +630,8 @@ Install the network Service (Neutron)
     linuxnet_interface_driver=nova.network.linux_net.LinuxOVSInterfaceDriver
     firewall_driver=nova.virt.firewall.NoopFirewallDriver
     security_group_api=neutron
+    service_metadata_proxy = True
+    metadata_proxy_shared_secret = helloOpenStack
 
 * Create a symbolic link needed by the networking service initialization::
 
@@ -607,6 +652,29 @@ Install the network Service (Neutron)
 
     service neutron-server start
     chkconfig neutron-server on
+
+* Start the OVS service and configure it to start when the system boots::
+
+    service openvswitch start
+    chkconfig openvswitch on
+
+* Add the integration bridge::
+
+    ovs-vsctl add-br br-int
+
+* Assign the right config file for OVS::
+
+    cp /etc/init.d/neutron-openvswitch-agent /etc/init.d/neutron-openvswitch-agent.orig
+    sed -i 's,plugins/openvswitch/ovs_neutron_plugin.ini,plugin.ini,g' /etc/init.d/neutron-openvswitch-agent
+
+* Start the Networking services and configure them to start when the system boots::
+
+    service neutron-openvswitch-agent start
+    service neutron-dhcp-agent start
+    service neutron-metadata-agent start
+    chkconfig neutron-openvswitch-agent on
+    chkconfig neutron-dhcp-agent on
+    chkconfig neutron-metadata-agent on
 
 
 Install the dashboard Service (Horizon)
@@ -633,7 +701,7 @@ Install the dashboard Service (Horizon)
 
     setsebool -P httpd_can_network_connect on
 
-* Flush IPTables
+* Flush IPTables::
 
     iptables -F
 
