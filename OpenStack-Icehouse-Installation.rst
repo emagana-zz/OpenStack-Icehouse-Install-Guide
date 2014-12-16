@@ -39,7 +39,7 @@ In this installation guide, we cover the step-by-step process of installing Open
 
 We have deployed a couple of compute nodes (see the Figure below) but you can simply add more compute nodes to our multi-node installation, if needed.
 
-.. image:: https://raw.githubusercontent.com/emagana/OpenStack-Icehouse-Install-Guide/blob/master/images/openstack-icehouse-ref-architecture.png
+.. image:: https://github.com/emagana/OpenStack-Icehouse-Install-Guide/blob/master/images/openstack-icehouse-ref-architecture.png
 
 So, let’s prepare the nodes for OpenStack installation!
 
