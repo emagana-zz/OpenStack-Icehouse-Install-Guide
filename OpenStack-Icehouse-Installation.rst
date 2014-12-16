@@ -406,3 +406,82 @@ Install the image Service (Glance)
 
 Install the compute Service (Nova)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* Install nova packages::
+
+    yum install openstack-nova-api openstack-nova-cert openstack-nova-conductor \
+    openstack-nova-console openstack-nova-novncproxy openstack-nova-scheduler python-novaclient -y
+
+
+* Create a Mysql database for Nova::
+
+    mysql -u root -p
+
+    CREATE DATABASE nova;
+    GRANT ALL PRIVILEGES ON nova.* TO 'nova'@'localhost' IDENTIFIED BY 'password';
+    GRANT ALL PRIVILEGES ON nova.* TO 'nova'@'%' IDENTIFIED BY 'password';
+
+    exit;
+
+* Configure service user and role::
+
+    keystone user-create --name=nova --pass=service_pass --email=nova@domain.com
+    keystone user-role-add --user=nova --tenant=service --role=admin
+
+* Register the service and create the endpoint::
+
+    keystone service-create --name=nova --type=compute --description="OpenStack Compute"
+    keystone endpoint-create \
+    --service-id=$(keystone service-list | awk '/ compute / {print $2}') \
+    --publicurl=http://controller:8774/v2/%\(tenant_id\)s \
+    --internalurl=http://controller:8774/v2/%\(tenant_id\)s \
+    --adminurl=http://controller:8774/v2/%\(tenant_id\)s
+
+
+* Edit the /etc/nova/nova.conf::
+
+    vim /etc/nova/nova.conf
+
+    [database]
+    connection = mysql://nova:password@controller/nova
+
+    [DEFAULT]
+    rpc_backend = rabbit
+    rabbit_host = controller
+    my_ip = controller
+    vncserver_listen = controller
+    vncserver_proxyclient_address = controller
+    auth_strategy = keystone
+
+    [keystone_authtoken]
+    auth_uri = http://controller:5000
+    auth_host = controller
+    auth_port = 35357
+    auth_protocol = http
+    admin_tenant_name = service
+    admin_user = nova
+    admin_password = service_pass
+
+
+* Synchronize your database::
+
+    nova-manage db sync
+
+* Restart nova-* services::
+
+    service openstack-nova-api start; service openstack-nova-cert start
+    service openstack-nova-consoleauth start; service openstack-nova-scheduler start
+    service openstack-nova-conductor start; service openstack-nova-novncproxy start
+    chkconfig openstack-nova-api on; chkconfig openstack-nova-cert on
+    chkconfig openstack-nova-consoleauth on; chkconfig openstack-nova-scheduler on
+    chkconfig openstack-nova-conductor on; chkconfig openstack-nova-novncproxy on
+
+
+* Check Nova is running. The :-) icons indicate that everything is ok!::
+
+    nova-manage service list
+
+* To verify your configuration, list available images::
+
+    nova image-list
+
