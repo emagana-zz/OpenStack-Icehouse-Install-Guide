@@ -81,7 +81,7 @@ All operations are performed by root
     172.16.232.140       compute1
 
 
-Configure Networking on Compute Node
+Configure Networking on Compute Nodes
 ---------------------------------------
 
 All operations are performed by root
@@ -117,6 +117,7 @@ All operations are performed by root
 
     # compute1
     172.16.232.140       compute1
+    ...                  compute2
 
 
 Verify connectivity
@@ -149,7 +150,7 @@ Install
 Controller Node
 ---------------
 
-Here we've installed the basic services (keystone, glance, nova,neutron and horizon) and also the supporting services 
+Here we've installed the basic services (keystone, glance, nova, neutron and horizon) and also the supporting services
 such as MySql database, message broker (RabbitMQ), and NTP. 
 
 	
@@ -190,7 +191,7 @@ Install the supporting services
     service mysql restart
 
 
-* Install Icehouse Repos
+* Install Icehouse Repos::
 
     yum install yum-plugin-priorities -y
     yum install http://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm -y
@@ -287,10 +288,10 @@ Install the Identity Service (Keystone)
     export OS_TENANT_NAME=admin
     export OS_AUTH_URL=http://controller:35357/v2.0
 
-* Create the signing keys and certificates and restrict access to the generated data: 
+* Create the signing keys and certificates and restrict access to the generated data: :
 
     keystone-manage pki_setup --keystone-user keystone --keystone-group keystone
-	chown -R keystone:keystone /etc/keystone/ssl
+    chown -R keystone:keystone /etc/keystone/ssl
 	chmod -R o-rwx /etc/keystone/ssl
         
 * Test Keystone::
@@ -308,3 +309,100 @@ Install the Identity Service (Keystone)
 Install the image Service (Glance)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+* Install Glance packages::
+
+    yum install openstack-glance python-glanceclient -y
+
+
+* Create a MySQL database for Glance::
+
+    mysql -u root -p
+
+    CREATE DATABASE glance;
+    GRANT ALL PRIVILEGES ON glance.* TO 'glance'@'localhost' IDENTIFIED BY 'password';
+    GRANT ALL PRIVILEGES ON glance.* TO 'glance'@'%' IDENTIFIED BY 'password';
+
+    exit;
+
+* Configure service user and role::
+
+    keystone user-create --name=glance --pass=service_pass --email=glance@domain.com
+    keystone user-role-add --user=glance --tenant=service --role=admin
+
+* Register the service and create the endpoint::
+
+    keystone service-create --name=glance --type=image --description="OpenStack Image Service"
+    keystone endpoint-create \
+    --service-id=$(keystone service-list | awk '/ image / {print $2}') \
+    --publicurl=http://controller:9292 \
+    --internalurl=http://controller:9292 \
+    --adminurl=http://controller:9292
+
+* Update /etc/glance/glance-api.conf::
+
+    vim /etc/glance/glance-api.conf
+
+    [database]
+    connection = mysql://glance:password@controller/glance
+
+    [DEFAULT]
+    rpc_backend = rabbit
+    rabbit_host = controller
+
+    [keystone_authtoken]
+    auth_uri = http://controller:5000
+    auth_host = controller
+    auth_port = 35357
+    auth_protocol = http
+    admin_tenant_name = service
+    admin_user = glance
+    admin_password = service_pass
+
+    [paste_deploy]
+    flavor = keystone
+
+
+* Update /etc/glance/glance-registry.conf::
+
+    vim /etc/glance/glance-registry.conf
+
+    [database]
+    connection = mysql://glance:password@controller/glance
+
+    [keystone_authtoken]
+    auth_uri = http://controller:5000
+    auth_host = controller
+    auth_port = 35357
+    auth_protocol = http
+    admin_tenant_name = service
+    admin_user = glance
+    admin_password = service_pass
+
+    [paste_deploy]
+    flavor = keystone
+
+
+* Restart the glance-api and glance-registry services::
+
+    service openstack-glance-api start; service openstack-glance-registry start
+    chkconfig openstack-glance-api on; chkconfig openstack-glance-registry on
+
+
+* Synchronize the glance database::
+
+    glance-manage db_sync
+
+* Test Glance, upload the cirros cloud image::
+
+    source creds
+    glance image-create --name "cirros-0.3.2-x86_64" --is-public true \
+    --container-format bare --disk-format qcow2 \
+    --location http://cdn.download.cirros-cloud.net/0.3.2/cirros-0.3.2-x86_64-disk.img
+
+* List Images::
+
+    glance image-list
+
+
+Install the compute Service (Nova)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
