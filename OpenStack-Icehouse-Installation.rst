@@ -88,7 +88,7 @@ All operations are performed by root
 
 * Edit network settings to configure interface eth0::
 
-    vi /etc/sysconfig/network-scripts/ifcfg-eth0
+    vim /etc/sysconfig/network-scripts/ifcfg-eth0
     (modify the following values)
 
     # The management network interface
@@ -739,3 +739,181 @@ Install the dashboard Service (Horizon)
 
 
 * Check OpenStack Dashboard at http://controller/horizon. login admin/admin_pass
+
+
+Compute Node
+------------
+
+Install the supporting services
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* Install VIM and NTP service (Network Time Protocol)::
+
+    yum install vim ntp -y
+    service ntpd start
+    chkconfig ntpd on
+
+* Set the compute node to follow up your controller node::
+
+   sed -i 's/server 0.centos.pool.ntp.org iburst/server controller/g' /etc/ntp.conf
+
+* Restart NTP service::
+
+    service ntpd restart
+
+* Edit the /etc/sysctl.conf file to contain the following parameters::
+
+    vim /etc/sysctl.conf
+    net.ipv4.ip_forward=1
+    net.ipv4.conf.all.rp_filter=0
+    net.ipv4.conf.default.rp_filter=0
+
+* Implement the changes::
+
+    sysctl -p
+
+* Install Icehouse Repos::
+
+    yum install yum-plugin-priorities -y
+    yum install http://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm -y
+    yum install http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm -y
+    yum install openstack-utils -y
+
+* Install the Compute packages::
+
+    yum install openstack-neutron-ml2 openstack-neutron-openvswitch openstack-nova-compute -y
+
+* Update /etc/neutron/neutron.conf::
+
+    vim /etc/neutron/neutron.conf
+
+    [DEFAULT]
+    auth_strategy = keystone
+    core_plugin = neutron.plugins.ml2.plugin.Ml2Plugin
+    service_plugins = neutron.services.l3_router.l3_router_plugin.L3RouterPlugin
+    allow_overlapping_ips = True
+
+    rpc_backend = neutron.openstack.common.rpc.impl_kombu
+    rabbit_host = controller
+
+    [keystone_authtoken]
+    auth_uri = http://controller:5000
+    auth_host = controller
+    auth_port = 35357
+    auth_protocol = http
+    admin_tenant_name = service
+    admin_user = neutron
+    admin_password = service_pass
+
+
+
+* Configure the Modular Layer 2 (ML2) plug-in::
+
+    vim /etc/neutron/plugins/ml2/ml2_conf.ini
+
+    [ml2]
+    type_drivers = gre
+    tenant_network_types = gre
+    mechanism_drivers = openvswitch
+
+    [ml2_type_gre]
+    tunnel_id_ranges = 1:1000
+
+    [ovs]
+    local_ip = 172.16.232.140
+    tunnel_type = gre
+    enable_tunneling = True
+
+    [securitygroup]
+    enable_security_group = False
+
+* Create a symbolic link needed by the networking service initialization::
+
+    ln -s /etc/neutron/plugins/ml2/ml2_conf.ini /etc/neutron/plugin.ini
+
+* Assign the right config file for OVS::
+
+    cp /etc/init.d/neutron-openvswitch-agent /etc/init.d/neutron-openvswitch-agent.orig
+    sed -i 's,plugins/openvswitch/ovs_neutron_plugin.ini,plugin.ini,g' /etc/init.d/neutron-openvswitch-agent
+
+* Restart the OVS service::
+
+    service openvswitch start
+    chkconfig openvswitch on
+
+* Create the bridges::
+
+    #br-int will be used for VM integration
+    ovs-vsctl add-br br-int
+
+* Edit /etc/nova/nova.conf::
+
+    vi /etc/nova/nova.conf
+
+    [database]
+    connection = mysql://nova:password@controller/nova
+
+    [DEFAULT]
+    auth_strategy = keystone
+    rpc_backend = rabbit
+    rabbit_host = controller
+    my_ip = compute1
+    vnc_enabled = True
+    vncserver_listen = 0.0.0.0
+    vncserver_proxyclient_address = compute1
+    novncproxy_base_url = http://controller:6080/vnc_auto.html
+    glance_host = controller
+    vif_plugging_is_fatal=false
+    vif_plugging_timeout=0
+    compute_driver=libvirt.LibvirtDriver
+
+    network_api_class = nova.network.neutronv2.api.API
+    neutron_url = http://controller:9696
+    neutron_auth_strategy = keystone
+    neutron_admin_tenant_name = service
+    neutron_admin_username = neutron
+    neutron_admin_password = service_pass
+    neutron_admin_auth_url = http://controller:35357/v2.0
+    linuxnet_interface_driver = nova.network.linux_net.LinuxOVSInterfaceDriver
+    firewall_driver = nova.virt.firewall.NoopFirewallDriver
+    security_group_api = neutron
+
+    [keystone_authtoken]
+    auth_uri = http://controller:5000
+    auth_host = controller
+    auth_port = 35357
+    auth_protocol = http
+    admin_tenant_name = service
+    admin_user = nova
+    admin_password = service_pass
+
+    [libvirt]
+    virt_type=qemu
+
+
+
+* Restart nova-compute services::
+
+    service libvirtd start
+    service messagebus start
+    service openstack-nova-compute start
+    chkconfig libvirtd on
+    chkconfig messagebus on
+    chkconfig openstack-nova-compute on
+
+* Restart the Open vSwitch (OVS) agent::
+
+    service neutron-plugin-openvswitch-agent restart
+
+* Check Nova is running. The :-) icons indicate that everything is ok !::
+
+    nova-manage service list
+
+
+
+
+Contacts
+========
+
+Edgar Magana
+emagana@gmail.com
