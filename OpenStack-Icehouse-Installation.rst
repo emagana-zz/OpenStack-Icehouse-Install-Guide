@@ -176,7 +176,7 @@ Install the supporting services
 
 * Under the [mysqld] section, set the following keys to enable InnoDB, UTF-8 character set, and UTF-8 collation by default::
 
-    vim /etc/mysql/my.cnf
+    vim /etc/my.cnf
 
     [mysqld]
     bind-address = controller
@@ -188,22 +188,44 @@ Install the supporting services
 
 * Restart the MySQL service::
 
-    service mysql restart
-
+    service mysqld restart
 
 * Install Icehouse Repos::
 
+    Create file /etc/yum.repos.d/rdo.repo
+
+    vim /etc/yum.repos.d/rdo.repo
+
+    # Copy the above information
+    [RDO-icehouse]
+    name=OpenStack RDO repo for icehouse
+    baseurl=http://repos.fedorapeople.org/repos/openstack/openstack-icehouse/epel-6
+    enabled=1
+    gpgcheck=0
+    gpgkey=https://raw.githubusercontent.com/redhat-openstack/rdo-release/master/RPM-GPG-KEY-RDO-Ic
+    ehouse
+    sslverify=1
+
+    Install the following packages
+
     yum install yum-plugin-priorities -y
-    yum install http://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm -y
     yum install http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm -y
     yum install openstack-utils -y
 
 * Install RabbitMQ (Message Queue)::
 
-    yum install rabbitmq-server
+    yum install rabbitmq-server -y
     service rabbitmq-server start
     chkconfig rabbitmq-server on
 
+* Install IProute::
+
+    yum install iproute -y
+
+* Turn off IPTables::
+
+    service iptables stop
+    chkconfig iptables off
 
 
 Install the Identity Service (Keystone)
@@ -225,14 +247,13 @@ Install the Identity Service (Keystone)
 * Edit /etc/keystone/keystone.conf::
 
      vim /etc/keystone/keystone.conf
-  
-    [database]
-    connection = mysql://keystone:password@controller/keystone
-    
-    [DEFAULT]
-    admin_token=ADMIN
-    log_dir=/var/log/keystone
-  
+
+     [DEFAULT]
+     admin_token=ADMIN
+     log_dir=/var/log/keystone
+
+     [database]
+     connection = mysql://keystone:password@controller/keystone
 
 * Restart the identity service then synchronize the database::
 
@@ -281,7 +302,7 @@ Install the Identity Service (Keystone)
 
 * Create a simple credential file::
 
-    vi admin_creds
+    vim admin_creds
     # Paste the following:
     export OS_USERNAME=admin
     export OS_PASSWORD=admin_pass
@@ -342,9 +363,6 @@ Install the image Service (Glance)
 
     vim /etc/glance/glance-api.conf
 
-    [database]
-    connection = mysql://glance:password@controller/glance
-
     [DEFAULT]
     rpc_backend = rabbit
     rabbit_host = controller
@@ -361,6 +379,8 @@ Install the image Service (Glance)
     [paste_deploy]
     flavor = keystone
 
+    [database]
+    connection = mysql://glance:password@controller/glance
 
 * Update /etc/glance/glance-registry.conf::
 
@@ -442,9 +462,6 @@ Install the compute Service (Nova)
 
     vim /etc/nova/nova.conf
 
-    [database]
-    connection = mysql://nova:password@controller/nova
-
     [DEFAULT]
     rpc_backend = rabbit
     rabbit_host = controller
@@ -462,6 +479,8 @@ Install the compute Service (Nova)
     admin_user = nova
     admin_password = service_pass
 
+    [database]
+    connection = mysql://nova:password@controller/nova
 
 * Synchronize your database::
 
@@ -495,10 +514,10 @@ Install the network Service (Neutron)
 
 * Edit /etc/sysctl.conf to contain the following::
 
-    vi /etc/sysctl.conf
-    net.ipv4.ip_forward=1
-    net.ipv4.conf.all.rp_filter=0
-    net.ipv4.conf.default.rp_filter=0
+    vim /etc/sysctl.conf
+    net.ipv4.ip_forward = 1
+    net.ipv4.conf.all.rp_filter = 0
+    net.ipv4.conf.default.rp_filter = 0
 
 * Implement the changes::
 
@@ -534,9 +553,6 @@ Install the network Service (Neutron)
 
     vim /etc/neutron/neutron.conf
 
-    [database]
-    connection = mysql://neutron:password@controller/neutron
-
     [DEFAULT]
     core_plugin = neutron.plugins.ml2.plugin.Ml2Plugin
     service_plugins = neutron.services.l3_router.l3_router_plugin.L3RouterPlugin
@@ -564,6 +580,8 @@ Install the network Service (Neutron)
     admin_user = neutron
     admin_password = service_pass
 
+    [database]
+    connection = mysql://neutron:password@controller/neutron
 
 * Configure the Modular Layer 2 (ML2) plug-in::
 
@@ -578,7 +596,14 @@ Install the network Service (Neutron)
     tunnel_id_ranges = 1:1000
 
     [securitygroup]
-    enable_security_group = False
+    firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
+
+    [ovs]
+    enable_tunneling = True
+    local_ip = controller
+
+    [agent]
+    tunnel_types = gre
 
 * Edit the /etc/neutron/dhcp_agent.ini::
 
@@ -589,6 +614,8 @@ Install the network Service (Neutron)
     dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
     use_namespaces = True
     dnsmasq_config_file = /etc/neutron/dnsmasq-neutron.conf
+    ovs_use_veth = False
+    dhcp_agent_manager = neutron.agent.dhcp_agent.DhcpAgentWithStateReport
 
 * Create the /etc/neutron/dnsmasq-neutron.conf file::
 
@@ -607,6 +634,9 @@ Install the network Service (Neutron)
     [DEFAULT]
     interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
     use_namespaces = True
+    l3_agent_manager = neutron.agent.l3_agent.L3NATAgentWithStateReport
+    external_network_bridge = br-ex
+    ovs_use_veth = False
 
 * Edit the /etc/neutron/metadata_agent.ini::
 
@@ -621,6 +651,14 @@ Install the network Service (Neutron)
     admin_password = service_pass
     nova_metadata_ip = controller
     metadata_proxy_shared_secret = helloOpenStack
+
+    signing_dir = /var/cache/neutron
+    auth_uri = http://controller:5000/v2.0
+    cafile = /opt/stack/data/ca-bundle.pem
+    identity_uri = http://controller:35357
+    auth_protocol = http
+    auth_port = 35357
+    auth_host = controller
 
 * Configure Compute to use Networking::
 
@@ -647,8 +685,8 @@ Install the network Service (Neutron)
 
 * Populate the database::
 
-    neutron-db-manage --config-file /etc/neutron/neutron.conf \
-    --config-file /etc/neutron/plugins/ml2/ml2_conf.ini upgrade icehouse neutron
+    su -s /bin/sh -c "neutron-db-manage --config-file /etc/neutron/neutron.conf \
+    --config-file /etc/neutron/plugin.ini upgrade icehouse" neutron
 
 * Restart the Compute services::
 
@@ -699,6 +737,7 @@ Install the dashboard Service (Horizon)
 * Edit /etc/openstack-dashboard/local_settings::
 
     vim /etc/openstack-dashboard/local_settings
+
     ALLOWED_HOSTS = ['*']
     OPENSTACK_HOST = "controller"
     CACHES = {
@@ -711,10 +750,6 @@ Install the dashboard Service (Horizon)
 * Ensure that the SELinux policy of the system is configured to allow network connections to the HTTP server::
 
     setsebool -P httpd_can_network_connect on
-
-* Flush IPTables::
-
-    iptables -F
 
 * Reload HTTP and memcached::
 
@@ -735,7 +770,7 @@ Install the dashboard Service (Horizon)
 
 * Reload Apache and memcached::
 
-    service httpd start; service memcached start
+    service httpd restart; service memcached restart
 
 
 * Check OpenStack Dashboard at http://controller/horizon. login admin/admin_pass
@@ -774,10 +809,34 @@ Install the supporting services
 
 * Install Icehouse Repos::
 
+    Create file /etc/yum.repos.d/rdo.repo
+
+    vim /etc/yum.repos.d/rdo.repo
+
+    # Copy the above information
+    [RDO-icehouse]
+    name=OpenStack RDO repo for icehouse
+    baseurl=http://repos.fedorapeople.org/repos/openstack/openstack-icehouse/epel-6
+    enabled=1
+    gpgcheck=0
+    gpgkey=https://raw.githubusercontent.com/redhat-openstack/rdo-release/master/RPM-GPG-KEY-RDO-Ic
+    ehouse
+    sslverify=1
+
+    Install the following packages
+
     yum install yum-plugin-priorities -y
-    yum install http://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm -y
     yum install http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm -y
     yum install openstack-utils -y
+
+* Install IProute::
+
+    yum install iproute -y
+
+* Turn off IPTables::
+
+    service iptables stop
+    chkconfig iptables off
 
 * Install the Compute packages::
 
