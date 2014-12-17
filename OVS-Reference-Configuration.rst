@@ -1,5 +1,5 @@
 ####
-OVS-Reference-Configuration - OpenStack Icehouse
+OVS Reference Configuration - OpenStack Icehouse
 ####
 
 Reference OVS configuration for multi-node deployment with one interface!
