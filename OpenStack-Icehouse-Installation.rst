@@ -202,8 +202,7 @@ Install the supporting services
     baseurl=http://repos.fedorapeople.org/repos/openstack/openstack-icehouse/epel-6
     enabled=1
     gpgcheck=0
-    gpgkey=https://raw.githubusercontent.com/redhat-openstack/rdo-release/master/RPM-GPG-KEY-RDO-Ic
-    ehouse
+    gpgkey=https://raw.githubusercontent.com/redhat-openstack/rdo-release/master/RPM-GPG-KEY-RDO-Icehouse
     sslverify=1
 
     Install the following packages
@@ -799,9 +798,9 @@ Install the supporting services
 * Edit the /etc/sysctl.conf file to contain the following parameters::
 
     vim /etc/sysctl.conf
-    net.ipv4.ip_forward=1
-    net.ipv4.conf.all.rp_filter=0
-    net.ipv4.conf.default.rp_filter=0
+    net.ipv4.ip_forward = 1
+    net.ipv4.conf.all.rp_filter = 0
+    net.ipv4.conf.default.rp_filter = 0
 
 * Implement the changes::
 
@@ -819,8 +818,7 @@ Install the supporting services
     baseurl=http://repos.fedorapeople.org/repos/openstack/openstack-icehouse/epel-6
     enabled=1
     gpgcheck=0
-    gpgkey=https://raw.githubusercontent.com/redhat-openstack/rdo-release/master/RPM-GPG-KEY-RDO-Ic
-    ehouse
+    gpgkey=https://raw.githubusercontent.com/redhat-openstack/rdo-release/master/RPM-GPG-KEY-RDO-Icehouse
     sslverify=1
 
     Install the following packages
@@ -878,13 +876,15 @@ Install the supporting services
     [ml2_type_gre]
     tunnel_id_ranges = 1:1000
 
-    [ovs]
-    local_ip = 172.16.232.140
-    tunnel_type = gre
-    enable_tunneling = True
-
     [securitygroup]
-    enable_security_group = False
+    firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
+
+    [ovs]
+    enable_tunneling = True
+    local_ip = controller
+
+    [agent]
+    tunnel_types = gre
 
 * Create a symbolic link needed by the networking service initialization::
 
