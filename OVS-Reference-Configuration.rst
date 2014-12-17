@@ -4,24 +4,16 @@ OVS-Reference-Configuration - OpenStack Icehouse
 
 Reference OVS configuration for multi-node deployment with one interface!
 
-
 :Version: 1.0
 :Authors: Edgar Magana
 :License: Apache License Version 2.0
 :Keywords: OpenStack, Icehouse, Neutron, Nova, CentOS 6.5, Glance, Horizon
-
 
 ===============================
 
 **Authors:**
 
 Copyright (C) `Edgar Magana <https://www.linkedin.com/profile/view?id=21754469&trk=nav_responsive_tab_profile>`_
-
-Based on the work done by:
-
-+ This document is based on the `OpenStack Official Documentation <http://docs.openstack.org/icehouse/install-guide/install/apt/content/index.html>`_ for Icehouse.
-+ Chaima Ghribi & Marouen Mechtri `OpenStack-Icehouse-Installation <https://github.com/ChaimaGhribi/OpenStack-Icehouse-Installation>`_
-
 
 ================================
 
@@ -43,11 +35,11 @@ We have deployed a couple of compute nodes (see the Figure below) but you can si
 
 
 OVS Configuration on Controller Node
----------------------------------------
+------------------------------------
 
-After running "ovs-vsctl show" on the Controller node, the output is::
+* After running "ovs-vsctl show" on the Controller node, the output is::
 
-Bridge br-tun
+    Bridge br-tun
         Port patch-int
             Interface patch-int
                 type: patch
@@ -80,11 +72,11 @@ Bridge br-tun
 
 
 OVS Configuration on Compute Node
----------------------------------------
+---------------------------------
 
-After running "ovs-vsctl show" on the Compute node, the output is::
+* After running "ovs-vsctl show" on the Compute node, the output is::
 
-Bridge br-int
+    Bridge br-int
         fail_mode: secure
         Port patch-tun
             Interface patch-tun
