@@ -881,7 +881,7 @@ Install the supporting services
 
     [ovs]
     enable_tunneling = True
-    local_ip = controller
+    local_ip = compute1
 
     [agent]
     tunnel_types = gre
@@ -947,7 +947,7 @@ Install the supporting services
     admin_password = service_pass
 
     [libvirt]
-    virt_type=qemu
+    virt_type=kvm
 
 
 
@@ -962,7 +962,7 @@ Install the supporting services
 
 * Restart the Open vSwitch (OVS) agent::
 
-    service neutron-plugin-openvswitch-agent restart
+    service neutron-openvswitch-agent start
 
 * Check Nova is running. The :-) icons indicate that everything is ok !::
 
